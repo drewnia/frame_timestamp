@@ -9,17 +9,17 @@ double ntp_timestamp(AVFormatContext *pFormatCtx, uint32_t *last_rtcp_ts, double
 	RTSPStream* rtsp_stream = rtsp_state->rtsp_streams[0];
 	RTPDemuxContext* rtp_demux_context = (RTPDemuxContext*) rtsp_stream->transport_priv;
 
-	/*
-	printf("timestamp:                %d\n", rtp_demux_context->timestamp);
-	printf("base_timestamp:           %d\n", rtp_demux_context->base_timestamp);
-	printf("cur_timestamp:            %d\n", rtp_demux_context->cur_timestamp);
-	printf("last_rtcp_ntp_time:       %ld\n", rtp_demux_context->last_rtcp_ntp_time);
-	printf("last_rtcp_reception_time: %ld\n", rtp_demux_context->last_rtcp_reception_time);
-	printf("first_rtcp_ntp_time:      %ld\n", rtp_demux_context->first_rtcp_ntp_time);
-	printf("last_rtcp_timestamp:      %d\n", rtp_demux_context->last_rtcp_timestamp);
 
-	printf("diff: %d\n",(rtp_demux_context->timestamp-rtp_demux_context->base_timestamp));
-	printf("====================================\n");*/
+	printf("timestamp:                %lu\n", rtp_demux_context->timestamp);
+	printf("base_timestamp:           %lu\n", rtp_demux_context->base_timestamp);
+	printf("cur_timestamp:            %lu\n", rtp_demux_context->timestamp);
+	printf("last_rtcp_ntp_time:       %lu\n", rtp_demux_context->last_rtcp_ntp_time);
+	printf("last_rtcp_reception_time: %lu\n", rtp_demux_context->last_rtcp_reception_time);
+	printf("first_rtcp_ntp_time:      %lu\n", rtp_demux_context->first_rtcp_ntp_time);
+	printf("last_rtcp_timestamp:      %lu\n", rtp_demux_context->last_rtcp_timestamp);
+
+	printf("diff: %lu\n",(rtp_demux_context->timestamp-rtp_demux_context->base_timestamp));
+	printf("====================================\n");
 
 
 	//ntp time extraction for DAHUA Cameras
@@ -27,17 +27,19 @@ double ntp_timestamp(AVFormatContext *pFormatCtx, uint32_t *last_rtcp_ts, double
 	uint32_t new_rtcp_ts = rtp_demux_context->last_rtcp_timestamp;
 	uint64_t last_ntp_time = 0;
 
-	if(new_rtcp_ts != *last_rtcp_ts){
+//	if(new_rtcp_ts != *last_rtcp_ts){
 		*last_rtcp_ts=new_rtcp_ts;
 		last_ntp_time = rtp_demux_context->last_rtcp_ntp_time;
 		uint32_t seconds = ((last_ntp_time >> 32) & 0xffffffff)-2208988800;
 		uint32_t fraction  = (last_ntp_time & 0xffffffff);
 		double useconds = ((double) fraction / 0xffffffff);
 		*base_time = seconds+useconds;
-	}
+//	}
 
 	int32_t d_ts = rtp_demux_context->timestamp-*last_rtcp_ts;
-	return *base_time+d_ts/90000.0;
+	double res = *base_time+d_ts/90000.0;
+	printf("base_time=%lu\n time1 = %lu\n time2=%.2f\n", *base_time, d_ts, res);
+	return res;
 }
 
 
@@ -75,29 +77,40 @@ int main(int argc, char *argv[]) {
 	int               videoStream = -1;
 	uint32_t					frame_size = 1280*720*1.5;
 
-	uint8_t network_mode = 0;
+	uint8_t network_mode = 1;
 	int result;
-	char* rtsp_source = "rtsp://admin:12345@10.50.0.59:554/Streaming/Channels/1";
-
+//	char* rtsp_source = "http://158.58.130.148:80/mjpg/video.mjpg";
+	char* rtsp_source = "rtsp://admin:skpipwd123@127.0.0.1:10554/cam/realmonitor?channel=1&subtype=0";
+	printf("reading from \n %s\n",rtsp_source);
 	avformat_network_init();
 
 	av_init_packet(&packet);
 
 	AVDictionary* opts = NULL;
-	av_dict_set(&opts, "stimeout", "5000000", 0);
+//	av_dict_set(&opts, "stimeout", "5000000000000",0);
+
+//	av_dict_set(&opts, "listen_timeout", "5",0);
+//	av_dict_set(&opts, "timeout", "5",0);
 
 	if (network_mode == 0) {
 		av_log(NULL, AV_LOG_DEBUG, "Opening UDP stream\n");
+		printf("Opening UDP stream\n");
 		result = avformat_open_input(&pFormatCtx, rtsp_source, NULL, &opts);
+//		result = avformat_open_input(&pFormatCtx, rtsp_source, NULL, NULL);
 	} else {
 		av_dict_set(&opts, "rtsp_transport", "tcp", 0);
 
 		av_log(NULL, AV_LOG_DEBUG, "Opening TCP stream\n");
+
+		printf("Opening TCP stream\n");
+
 		result = avformat_open_input(&pFormatCtx, rtsp_source, NULL, &opts);
+//		result = avformat_open_input(&pFormatCtx, rtsp_source, NULL, NULL);
 	}
 
 	if (result < 0) {
 		av_log(NULL, AV_LOG_ERROR, "Couldn't open stream\n");
+		printf("Couldn't open stream\n");
 		return 0;
 	}
 
@@ -160,17 +173,20 @@ int main(int argc, char *argv[]) {
 	uint8_t* frame_data = NULL;
 
 	FILE *output_file = NULL;
-
+	printf("starting\n");
+//        sleep(30);
 	while (av_read_frame(pFormatCtx, &packet) >= 0) {
-		if (decode(&got_frame, pFrame, pCodecCtx, &packet) < 0) {
-			av_log(NULL, AV_LOG_ERROR, "Decoding error\n");
-			break;
-		}
-
+//		if (decode(&got_frame, pFrame, pCodecCtx, &packet) < 0) {
+//			printf("Decoding error\n");
+//			av_log(NULL, AV_LOG_ERROR, "Decoding error\n");
+//			break;
+//		}
+		printf("reading frame...\n");
 		if (got_frame) {
+			printf("got_frame\n");
 			double ts = ntp_timestamp(pFormatCtx, &last_rtcp_ts, &base_time);
 
-			// frame
+/*			// frame
 			frame_data = av_malloc(byte_buffer_size);
 
 			if (!frame_data) {
@@ -188,6 +204,7 @@ int main(int argc, char *argv[]) {
 			if (number_of_written_bytes < 0) {
 				av_log(NULL, AV_LOG_ERROR, "Couldn't copy to buffer\n");
 				break;
+
 			}
 
 			//write YUV frames to files
@@ -200,13 +217,15 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Failed to dump raw data.\n");
       } else {
 				fclose(output_file);
-			}*/
+			}
 
 			free(frame_data);
 
 			av_packet_unref(&packet);
 			av_init_packet(&packet);
+*/
 		}
 	}
+	printf("finishing\n");
 	return 0;
 }

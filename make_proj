@@ -1,0 +1,9 @@
+export ff_src=$HOME/ffmpeg_sources/ffmpeg
+export ff_bld=$HOME/ffmpeg_build
+
+#PKG_CONFIG_PATH="$ff_src" ./configure --prefix="$ff_bld" --pkg-config-flags="--static" --extra-cflags="-I$ff_bld/include" --extra-ldflags="-L$ff_bld/lib" --bindir="$ff_bin" --enable-gpl --enable-nonfree
+#PKG_CONFIG_PATH="ff_bld/lib/pkgconfig/" 
+#gcc -I$ff_src/ main.c -o main.out `pkg-config --cflags --libs libavformat libswscale` -lvdpau -lX11 -lva-x11 -lva-drm
+
+gcc -I$ff_src/ main.c -o main.out -L/home/andrey/ffmpeg_build/lib -lvdpau -lX11 -lva-x11 -lva-drm -lavformat -lswscale -lavcodec -lavutil
+
